@@ -317,10 +317,9 @@ impl WithPath<Config> {
                             .filter_map(|entry| entry.ok())
                             .map(|entry| self.process_single_path(&entry.path()))
                             .collect(),
-                        Err(e) => vec![Err(Error::new(io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Error reading directory {:?}: {}", dir, e),
-                        )))],
+                        Err(e) => vec![Err(Error::new(io::Error::other(format!(
+                            "Error reading directory {dir:?}: {e}"
+                        ))))],
                     }
                 } else {
                     vec![self.process_single_path(&path)]
@@ -331,10 +330,9 @@ impl WithPath<Config> {
 
     fn process_single_path(&self, path: &PathBuf) -> Result<PathBuf, Error> {
         path.canonicalize().map_err(|e| {
-            Error::new(io::Error::new(
-                io::ErrorKind::Other,
-                format!("Error canonicalizing path {:?}: {}", path, e),
-            ))
+            Error::new(io::Error::other(format!(
+                "Error canonicalizing path {path:?}: {e}"
+            )))
         })
     }
 }
@@ -386,6 +384,8 @@ pub enum PackageManager {
     Yarn,
     /// Use pnpm as the package manager.
     PNPM,
+    /// Use bun as the package manager.
+    Bun,
 }
 
 impl std::fmt::Display for PackageManager {
@@ -394,6 +394,7 @@ impl std::fmt::Display for PackageManager {
             PackageManager::NPM => "npm",
             PackageManager::Yarn => "yarn",
             PackageManager::PNPM => "pnpm",
+            PackageManager::Bun => "bun",
         };
 
         write!(f, "{pkg_manager_str}")
@@ -682,7 +683,7 @@ impl fmt::Display for Config {
         };
 
         let cfg = toml::to_string(&cfg).expect("Must be well formed");
-        write!(f, "{}", cfg)
+        write!(f, "{cfg}")
     }
 }
 

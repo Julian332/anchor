@@ -37,7 +37,7 @@ pub fn create_program(name: &str, template: ProgramTemplate, with_mollusk: bool)
             program_path.join("Cargo.toml"),
             cargo_toml(name, with_mollusk),
         ),
-        (program_path.join("Xargo.toml"), xargo_toml().into()),
+        // Note: Xargo.toml is no longer needed for modern Solana builds using SBF
     ];
 
     let template_files = match template {
@@ -204,11 +204,17 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
 {2}
 
 [dependencies]
 anchor-lang = "{3}"
 {4}
+
+[lints.rust]
+unexpected_cfgs = {{ level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }}
 "#,
         name,
         name.to_snake_case(),
@@ -216,12 +222,6 @@ anchor-lang = "{3}"
         VERSION,
         dev_dependencies,
     )
-}
-
-fn xargo_toml() -> &'static str {
-    r#"[target.bpfel-unknown-unknown.dependencies.std]
-features = []
-"#
 }
 
 /// Read the program keypair file or create a new one if it doesn't exist.
@@ -256,15 +256,12 @@ const anchor = require('@coral-xyz/anchor');
 const userScript = require("{script_path}");
 
 async function main() {{
-    const url = "{cluster_url}";
-    const preflightCommitment = 'recent';
-    const connection = new anchor.web3.Connection(url, preflightCommitment);
+    const connection = new anchor.web3.Connection(
+      "{cluster_url}",
+      anchor.AnchorProvider.defaultOptions().commitment
+    );
     const wallet = anchor.Wallet.local();
-
-    const provider = new anchor.AnchorProvider(connection, wallet, {{
-        preflightCommitment,
-        commitment: 'recent',
-    }});
+    const provider = new anchor.AnchorProvider(connection, wallet);
 
     // Run the user's deploy script.
     userScript(provider);
@@ -282,15 +279,12 @@ pub fn deploy_ts_script_host(cluster_url: &str, script_path: &str) -> String {
 const userScript = require("{script_path}");
 
 async function main() {{
-    const url = "{cluster_url}";
-    const preflightCommitment = 'recent';
-    const connection = new anchor.web3.Connection(url, preflightCommitment);
+    const connection = new anchor.web3.Connection(
+      "{cluster_url}",
+      anchor.AnchorProvider.defaultOptions().commitment
+    );
     const wallet = anchor.Wallet.local();
-
-    const provider = new anchor.AnchorProvider(connection, wallet, {{
-        preflightCommitment,
-        commitment: 'recent',
-    }});
+    const provider = new anchor.AnchorProvider(connection, wallet);
 
     // Run the user's deploy script.
     userScript(provider);
@@ -638,6 +632,7 @@ impl TestTemplate {
             PackageManager::Yarn => "yarn run",
             PackageManager::NPM => "npx",
             PackageManager::PNPM => "pnpm exec",
+            PackageManager::Bun => "bunx",
         };
 
         match &self {
@@ -700,7 +695,7 @@ impl TestTemplate {
                 }
             }
             Self::Rust => {
-                // Do not initilize git repo
+                // Do not initialize git repo
                 let exit = std::process::Command::new("cargo")
                     .arg("new")
                     .arg("--vcs")
@@ -756,10 +751,9 @@ description = "Created with Anchor"
 edition = "2021"
 
 [dependencies]
-anchor-client = "{0}"
-{1} = {{ version = "0.1.0", path = "../programs/{1}" }}
+anchor-client = "{VERSION}"
+{name} = {{ version = "0.1.0", path = "../programs/{name}" }}
 "#,
-        VERSION, name,
     )
 }
 
